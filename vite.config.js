@@ -7,7 +7,10 @@ export default defineConfig({
       input: {
         login: 'login.html',
         signup: 'signup.html',
-        index: 'index.html'
+        index: 'index.html',
+        playerDashboard: 'player/player-dashboard.html',
+        captainDashboard: 'captain/captain-dashboard.html',
+        coachDashboard: 'coach/coach-dashboard.html'
       }
     }
   }
