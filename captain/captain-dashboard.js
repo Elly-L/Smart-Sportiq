@@ -1,12 +1,26 @@
 // Firebase imports
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { getFirestore, addDoc, onSnapshot, collection, query, where, getDoc, doc, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { 
+    getAuth, 
+    signInAnonymously, 
+    signInWithCustomToken, 
+    onAuthStateChanged, 
+    signOut 
+} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { 
+    getFirestore, 
+    addDoc, 
+    onSnapshot, 
+    collection, 
+    query, 
+    where, 
+    getDoc, 
+    doc,
+    Timestamp 
+} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-// --- ENVIRONMENT CONFIG ---
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+// Import Firebase config (make sure the path is correct)
+import { firebaseConfig } from "../firebase-config.js";
 
 // --- GLOBAL STATE ---
 let db = null;
@@ -16,7 +30,7 @@ let unsubscribePersonalAttendance = null;
 let unsubscribeTeamData = null;
 
 // --- COLLECTION PATH ---
-const TEAM_ATTENDANCE_COLLECTION = `artifacts/${appId}/public/data/teamAttendance`;
+const TEAM_ATTENDANCE_COLLECTION = `artifacts/${firebaseConfig.projectId}/public/data/teamAttendance`;
 
 // --- ROLE TEXT ---
 const RoleMapping = {
@@ -50,31 +64,25 @@ async function getUserDetails(uid) {
         const snap = await getDoc(ref);
 
         if (!snap.exists()) {
-            return { name: "Unknown User", role: "captain" };
+            return { name: "Unknown", role: "captain" };
         }
-        const data = snap.data();
-        // Handle multiple possible name fields
-        const name = data.name || data.fullName || data.displayName || "Unknown User";
-        const role = data.role || "captain";
-        return { name, role };
+        return snap.data(); // {name, email, role}
     } catch (err) {
         console.error("Failed to load user details:", err);
-        return { name: "Unknown User", role: "captain" };
+        return { name: "Unknown", role: "captain" };
     }
 }
 
 // --- HELPERS ---
-function capitalize(str) {
-    return str ? str.charAt(0).toUpperCase() + str.slice(1).toLowerCase() : "";
-}
-
 function isPointInPolygon(point, polygon) {
     const [lat, lon] = point;
     let inside = false;
+
     for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
         const [latI, lonI] = polygon[i];
         const [latJ, lonJ] = polygon[j];
-        const intersect = lonI > lon !== lonJ > lon &&
+        
+        const intersect = (lonI > lon) !== (lonJ > lon) &&
             lat < ((latJ - latI) * (lon - lonI)) / (lonJ - lonI) + latI;
         if (intersect) inside = !inside;
     }
@@ -84,11 +92,13 @@ function isPointInPolygon(point, polygon) {
 // --- PERSONAL ATTENDANCE UI UPDATE ---
 function updatePersonalAttendanceList(records) {
     personalAttendanceList.innerHTML = "";
+
     if (records.length === 0) {
         personalAttendanceList.innerHTML =
             `<li class="p-2 bg-gray-100 text-gray-600 rounded-md border-l-4 border-gray-400">No personal records yet.</li>`;
         return;
     }
+
     records.forEach(rec => {
         const li = document.createElement("li");
         li.innerHTML = `<strong>✅ ${rec.timestamp.toDate().toLocaleString()}</strong>`;
@@ -100,32 +110,40 @@ function updatePersonalAttendanceList(records) {
 function updateTeamDataList(records) {
     teamLoadingSpinner.classList.add("hidden");
     teamDataList.innerHTML = "";
+
     if (records.length === 0) {
         teamDataList.innerHTML =
             `<tr><td colspan="4" class="py-3 text-center text-gray-500">No team attendance records found.</td></tr>`;
         return;
     }
+
     const grouped = {};
     const oneWeekAgo = new Date();
     oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
     records.forEach(r => {
         if (!grouped[r.userId]) {
-            grouped[r.userId] = {
+            grouped[r.userId] = { 
                 name: r.userName,
                 role: r.userRole,
                 count: 0
             };
         }
-        if (r.timestamp.toDate() > oneWeekAgo) grouped[r.userId].count++;
+        if (r.timestamp.toDate() > oneWeekAgo) {
+            grouped[r.userId].count++;
+        }
     });
+
     Object.values(grouped).forEach(p => {
         const tr = document.createElement("tr");
+
         tr.innerHTML = `
             <td class="py-3 px-4 font-medium">${p.name} <span class="text-xs text-gray-500">(${RoleMapping[p.role] || "User"})</span></td>
             <td class="py-3 px-4 text-center font-bold text-green-600">${p.count} / 7</td>
             <td class="py-3 px-4 text-center text-gray-600">N/A</td>
             <td class="py-3 px-4 text-center text-gray-600">N/A</td>
         `;
+
         teamDataList.appendChild(tr);
     });
 }
@@ -133,8 +151,10 @@ function updateTeamDataList(records) {
 // --- LOAD PERSONAL RECORDS ---
 function loadPersonalAttendance(uid) {
     if (unsubscribePersonalAttendance) unsubscribePersonalAttendance();
+
     const ref = collection(db, TEAM_ATTENDANCE_COLLECTION);
     const q = query(ref, where("userId", "==", uid));
+
     unsubscribePersonalAttendance = onSnapshot(q, snap => {
         const rec = [];
         snap.forEach(doc => rec.push(doc.data()));
@@ -146,7 +166,9 @@ function loadPersonalAttendance(uid) {
 // --- LOAD TEAM RECORDS ---
 function loadTeamData() {
     if (unsubscribeTeamData) unsubscribeTeamData();
+
     const ref = collection(db, TEAM_ATTENDANCE_COLLECTION);
+
     unsubscribeTeamData = onSnapshot(ref, snap => {
         const rec = [];
         snap.forEach(doc => rec.push(doc.data()));
@@ -158,6 +180,7 @@ function loadTeamData() {
 async function markAttendance(locationData, userDetails) {
     try {
         const ref = collection(db, TEAM_ATTENDANCE_COLLECTION);
+
         await addDoc(ref, {
             userId: currentUserId,
             userName: userDetails.name,
@@ -166,7 +189,10 @@ async function markAttendance(locationData, userDetails) {
             lat: locationData.latitude,
             lon: locationData.longitude
         });
-        attendanceMessage.textContent = `Attendance marked successfully at ${new Date().toLocaleTimeString()}`;
+
+        attendanceMessage.textContent =
+            `Attendance marked successfully at ${new Date().toLocaleTimeString()}`;
+
     } catch (err) {
         attendanceMessage.textContent = "Error saving attendance.";
         console.error(err);
@@ -179,17 +205,21 @@ function handleMarkAttendanceClick(userDetails) {
         attendanceMessage.textContent = "Geolocation not supported.";
         return;
     }
+
     markAttendanceBtn.disabled = true;
     markAttendanceBtn.innerHTML = `<span class="loader mr-2"></span>Checking location...`;
+
     navigator.geolocation.getCurrentPosition(
         pos => {
             const lat = pos.coords.latitude;
             const lon = pos.coords.longitude;
+
             if (isPointInPolygon([lat, lon], handballField)) {
                 markAttendance({ latitude: lat, longitude: lon }, userDetails);
             } else {
                 attendanceMessage.textContent = "You are not inside the handball field area.";
             }
+
             markAttendanceBtn.disabled = false;
             markAttendanceBtn.textContent = "Mark Present";
         },
@@ -207,6 +237,7 @@ function handleMarkAttendanceClick(userDetails) {
 function handleLogout() {
     if (unsubscribePersonalAttendance) unsubscribePersonalAttendance();
     if (unsubscribeTeamData) unsubscribeTeamData();
+
     signOut(auth).finally(() => window.location.reload());
 }
 
@@ -214,11 +245,15 @@ function handleLogout() {
 async function initDashboard(uid) {
     const userDetails = await getUserDetails(uid);
     const roleName = RoleMapping[userDetails.role] || "User";
+
     playerNameElement.textContent = `Welcome, ${roleName} ${userDetails.name}`;
+
     markAttendanceBtn.addEventListener("click", () => handleMarkAttendanceClick(userDetails));
     logoutBtn.addEventListener("click", handleLogout);
+
     loadPersonalAttendance(uid);
     loadTeamData();
+
     loadingOverlay.classList.add("hidden");
 }
 
@@ -228,11 +263,10 @@ async function initializeAppAndAuth() {
         const app = initializeApp(firebaseConfig);
         db = getFirestore(app);
         auth = getAuth(app);
-        if (initialAuthToken) {
-            await signInWithCustomToken(auth, initialAuthToken);
-        } else {
-            await signInAnonymously(auth);
-        }
+
+        // Use anonymous sign-in if no custom token
+        await signInAnonymously(auth);
+
         onAuthStateChanged(auth, user => {
             if (user) {
                 currentUserId = user.uid;
@@ -241,6 +275,7 @@ async function initializeAppAndAuth() {
                 document.getElementById("loading-message").textContent = "Authentication failed.";
             }
         });
+
     } catch (err) {
         console.error("Initialization error:", err);
     }
