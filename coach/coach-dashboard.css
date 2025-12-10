@@ -1,0 +1,16 @@
+body {
+    font-family: 'Inter', sans-serif;
+}
+
+.loader {
+    border-top-color: transparent;
+    border-right-color: transparent;
+}
+
+table th, table td {
+    border-bottom: 1px solid #e5e7eb;
+}
+
+table tbody tr:hover {
+    background-color: #f3f4f6;
+}
