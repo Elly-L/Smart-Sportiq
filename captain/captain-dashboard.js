@@ -22,7 +22,7 @@ let unsubscribePersonalAttendance = null;
 let unsubscribeTeamData = null;
 
 // --- COLLECTION PATH ---
-const TEAM_ATTENDANCE_COLLECTION = "teamAttendance"; // adjust if needed
+const TEAM_ATTENDANCE_COLLECTION = "teamAttendance";
 
 // --- ROLE TEXT ---
 const RoleMapping = {
@@ -67,12 +67,20 @@ function isPointInPolygon(point, polygon) {
     return inside;
 }
 
+// --- FETCH USER DETAILS ---
 async function getUserDetails(uid) {
     try {
         const ref = doc(db, "users", uid);
         const snap = await getDoc(ref);
+
         if (!snap.exists()) return { name: "Unknown User", role: "captain" };
-        return snap.data(); // {name, email, role}
+
+        const data = snap.data();
+        // Try multiple possible name fields
+        const name = data.name || data.fullName || data.displayName || "Unknown";
+        const role = data.role || "captain";
+
+        return { name, role };
     } catch (err) {
         console.error("Failed to load user details:", err);
         return { name: "Unknown User", role: "captain" };
@@ -205,7 +213,8 @@ function handleLogout() {
 // --- INIT DASHBOARD ---
 async function initDashboard(uid) {
     const userDetails = await getUserDetails(uid);
-    playerNameElement.textContent = `Captain ${userDetails.name}`;
+    // <---- FIXED NAME DISPLAY ---->
+    playerNameElement.textContent = `Welcome, ${capitalize(userDetails.role)} ${userDetails.name}`;
 
     markAttendanceBtn.addEventListener("click", () => handleMarkAttendanceClick(userDetails));
     logoutBtn.addEventListener("click", handleLogout);
@@ -233,4 +242,3 @@ function initializeCaptainDashboard() {
 }
 
 window.onload = initializeCaptainDashboard;
-
