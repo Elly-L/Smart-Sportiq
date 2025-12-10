@@ -7,7 +7,7 @@
   appId: import.meta.env.VITE_FIREBASE_APP_ID
 }; */
 
-const firebaseConfig = {
+export const firebaseConfig = {
   apiKey: "AIzaSyD9rFzcijHsJi7YMw1jm72Yae6XDjQH9uI",
   authDomain: "player-performance-track-cd851.firebaseapp.com",
   projectId: "player-performance-track-cd851",
