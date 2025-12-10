@@ -1,6 +1,6 @@
 // Firebase imports
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { firebaseConfig } from "../firebase-config.js";
 
@@ -9,19 +9,19 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// Get elements
+// DOM elements
 const playerNameElement = document.getElementById("player-name");
 const logoutBtn = document.getElementById("logout-btn");
 const markAttendanceBtn = document.getElementById("mark-attendance");
 const attendanceMessage = document.getElementById("attendance-message");
 const attendanceList = document.getElementById("attendance-list");
 
-// Helper to capitalize
+// Helper: capitalize first letter
 function capitalize(str) {
     return str ? str.charAt(0).toUpperCase() + str.slice(1).toLowerCase() : "";
 }
 
-// Load user profile from Firestore instead of localStorage
+// Fetch and display user profile
 onAuthStateChanged(auth, async (user) => {
     if (!user) {
         window.location.href = "../login.html";
@@ -32,23 +32,24 @@ onAuthStateChanged(auth, async (user) => {
         const userRef = doc(db, "users", user.uid);
         const userSnap = await getDoc(userRef);
 
+        let roleTitle = "Player";
+        let fullName = "Unknown";
+
         if (userSnap.exists()) {
             const data = userSnap.data();
-
-            const roleTitle = capitalize(data.role); // Player, Captain, Coach
-            const fullName = data.name; // Full name as entered in signup
-
-            playerNameElement.textContent = `${roleTitle} ${fullName}`;
-        } else {
-            playerNameElement.textContent = "Player (Unknown)";
+            roleTitle = capitalize(data.role) || roleTitle;
+            // Try multiple possible field names
+            fullName = data.name || data.fullName || data.displayName || "Unknown";
         }
+
+        playerNameElement.textContent = `Welcome, ${roleTitle} ${fullName}`;
     } catch (err) {
         console.error("Error fetching user profile:", err);
-        playerNameElement.textContent = "Player";
+        playerNameElement.textContent = "Welcome, Player";
     }
 });
 
-// Handball field coordinates (polygon)
+// Handball field polygon coordinates
 const handballField = [
     [-0.5139614631894397, 37.45711996026331],
     [-0.5142979996425096, 37.45759256240965],
@@ -56,7 +57,7 @@ const handballField = [
     [-0.5143660229659767, 37.45739922516797]
 ];
 
-// Check if player is inside polygon
+// Check if a point is inside polygon
 function isPointInPolygon(point, polygon) {
     const [lat, lon] = point;
     let inside = false;
@@ -65,16 +66,14 @@ function isPointInPolygon(point, polygon) {
         const [latI, lonI] = polygon[i];
         const [latJ, lonJ] = polygon[j];
 
-        const intersect =
-            (lonI > lon) !== (lonJ > lon) &&
+        const intersect = (lonI > lon) !== (lonJ > lon) &&
             lat < ((latJ - latI) * (lon - lonI)) / (lonJ - lonI) + latI;
-
         if (intersect) inside = !inside;
     }
     return inside;
 }
 
-// Load attendance records from localStorage
+// Load attendance from localStorage
 function loadAttendance() {
     const attendanceData = JSON.parse(localStorage.getItem("attendanceRecords")) || [];
     attendanceList.innerHTML = "";
@@ -98,6 +97,7 @@ markAttendanceBtn.addEventListener("click", () => {
     }
 
     attendanceMessage.textContent = "📍 Checking your location...";
+    markAttendanceBtn.disabled = true;
 
     navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -117,19 +117,28 @@ markAttendanceBtn.addEventListener("click", () => {
             } else {
                 attendanceMessage.textContent = "⚠️ You must be within the handball field to mark attendance.";
             }
+
+            markAttendanceBtn.disabled = false;
         },
         (error) => {
             attendanceMessage.textContent = "❌ Location access denied or unavailable.";
             console.error(error);
+            markAttendanceBtn.disabled = false;
         }
     );
 });
 
 // Logout
-logoutBtn.addEventListener("click", () => {
-    localStorage.removeItem("attendanceRecords");
-    window.location.href = "../login.html";
+logoutBtn.addEventListener("click", async () => {
+    try {
+        await signOut(auth);
+        localStorage.removeItem("attendanceRecords");
+        window.location.href = "../login.html";
+    } catch (err) {
+        console.error("Logout error:", err);
+    }
 });
 
 // Load attendance on page load
 loadAttendance();
+
