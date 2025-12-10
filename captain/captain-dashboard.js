@@ -299,15 +299,14 @@ function handleLogout() {
 }
 
 // --- INITIALIZATION ---
-
 function initDashboard(uid) {
     const userDetails = getUserDetails(uid);
     const roleTitle = RoleMapping[userDetails.role];
 
-    // Set the personalized welcome greeting
-    playerNameElement.textContent = `${roleTitle} ${userDetails.name.split(' ').pop()}`;
-    
-    // Attach event listener, passing userDetails for the attendance record
+    // FIXED welcome message
+    playerNameElement.textContent = `${roleTitle} ${userDetails.name}`;
+
+    // Attach event listener for attendance
     markAttendanceBtn.addEventListener("click", () => handleMarkAttendanceClick(userDetails));
     logoutBtn.addEventListener("click", handleLogout);
     
@@ -318,6 +317,7 @@ function initDashboard(uid) {
     // Hide loading overlay
     loadingOverlay.classList.add('hidden');
 }
+
 
 async function initializeAppAndAuth() {
     try {
