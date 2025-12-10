@@ -1,6 +1,7 @@
+// Firebase imports
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
-import { getFirestore, collection, query, where, getDocs, orderBy, Timestamp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+import { getFirestore, collection, doc, getDoc, getDocs, Timestamp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { firebaseConfig } from "../firebase-config.js";
 
 // --- Firebase Init ---
@@ -14,7 +15,7 @@ const logoutBtn = document.getElementById("logout-btn");
 const loadingOverlay = document.getElementById("loading-view");
 const teamAttendanceList = document.getElementById("team-attendance-list");
 
-// --- Helpers ---
+// --- Helper: capitalize first letter ---
 function capitalize(str) {
     return str ? str.charAt(0).toUpperCase() + str.slice(1).toLowerCase() : "";
 }
@@ -31,12 +32,12 @@ onAuthStateChanged(auth, async (user) => {
         const userRef = doc(db, "users", user.uid);
         const userSnap = await getDoc(userRef);
 
+        let fullName = "Unknown";
         if (userSnap.exists()) {
             const data = userSnap.data();
-            coachNameElement.textContent = `Coach ${data.name}`;
-        } else {
-            coachNameElement.textContent = "Coach (Unknown)";
+            fullName = data.name || data.fullName || data.displayName || "Unknown";
         }
+        coachNameElement.textContent = `Welcome, Coach ${fullName}`;
 
         // Fetch all team attendance
         const teamCollection = collection(db, "teamAttendance");
@@ -44,25 +45,23 @@ onAuthStateChanged(auth, async (user) => {
 
         // Process attendance per user
         const attendanceByUser = {};
+        const oneWeekAgo = new Date();
+        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 
         teamSnapshot.forEach(doc => {
             const record = doc.data();
             const uid = record.userId;
-            const ts = record.timestamp;
 
             if (!attendanceByUser[uid]) {
                 attendanceByUser[uid] = {
                     name: record.userName || "Unknown",
                     role: record.userRole || "Player",
-                    dates: [],
+                    dates: []
                 };
             }
 
-            // Only keep last 7 days
-            const oneWeekAgo = new Date();
-            oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-            if (ts.toDate() > oneWeekAgo) {
-                attendanceByUser[uid].dates.push(ts.toDate());
+            if (record.timestamp.toDate() > oneWeekAgo) {
+                attendanceByUser[uid].dates.push(record.timestamp.toDate());
             }
         });
 
@@ -87,6 +86,7 @@ onAuthStateChanged(auth, async (user) => {
     } catch (err) {
         console.error("Error loading dashboard:", err);
         teamAttendanceList.innerHTML = `<tr><td colspan="4" class="text-center py-4 text-red-500">Failed to load data</td></tr>`;
+        coachNameElement.textContent = "Welcome, Coach";
     } finally {
         loadingOverlay.classList.add("hidden");
     }
@@ -102,4 +102,5 @@ logoutBtn.addEventListener("click", async () => {
         window.location.reload();
     }
 });
+
 
