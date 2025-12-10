@@ -1,12 +1,6 @@
 // Firebase imports
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { 
-    getAuth, 
-    signInAnonymously, 
-    signInWithCustomToken, 
-    onAuthStateChanged, 
-    signOut 
-} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { 
     getFirestore, 
     addDoc, 
@@ -15,11 +9,9 @@ import {
     query, 
     where, 
     getDoc, 
-    doc,
+    doc, 
     Timestamp 
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-// Import Firebase config (make sure the path is correct)
 import { firebaseConfig } from "../firebase-config.js";
 
 // --- GLOBAL STATE ---
@@ -30,7 +22,7 @@ let unsubscribePersonalAttendance = null;
 let unsubscribeTeamData = null;
 
 // --- COLLECTION PATH ---
-const TEAM_ATTENDANCE_COLLECTION = `artifacts/${firebaseConfig.projectId}/public/data/teamAttendance`;
+const TEAM_ATTENDANCE_COLLECTION = "teamAttendance"; // adjust if needed
 
 // --- ROLE TEXT ---
 const RoleMapping = {
@@ -49,7 +41,7 @@ const teamDataList = document.getElementById("team-data-list");
 const loadingOverlay = document.getElementById("loading-view");
 const teamLoadingSpinner = document.getElementById("team-loading");
 
-// --- FIELD COORDINATES ---
+// --- HAND BALL FIELD COORDINATES ---
 const handballField = [
     [37.45711996026331, -0.5139614631894397],
     [37.45759256240965, -0.5142979996425096],
@@ -57,48 +49,43 @@ const handballField = [
     [37.45739922516797, -0.5143660229659767]
 ];
 
-// --- FIRESTORE USER LOOKUP ---
-async function getUserDetails(uid) {
-    try {
-        const ref = doc(db, "users", uid);
-        const snap = await getDoc(ref);
-
-        if (!snap.exists()) {
-            return { name: "Unknown", role: "captain" };
-        }
-        return snap.data(); // {name, email, role}
-    } catch (err) {
-        console.error("Failed to load user details:", err);
-        return { name: "Unknown", role: "captain" };
-    }
+// --- HELPERS ---
+function capitalize(str) {
+    return str ? str.charAt(0).toUpperCase() + str.slice(1).toLowerCase() : "";
 }
 
-// --- HELPERS ---
 function isPointInPolygon(point, polygon) {
     const [lat, lon] = point;
     let inside = false;
-
     for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
         const [latI, lonI] = polygon[i];
         const [latJ, lonJ] = polygon[j];
-        
         const intersect = (lonI > lon) !== (lonJ > lon) &&
-            lat < ((latJ - latI) * (lon - lonI)) / (lonJ - lonI) + latI;
+                          lat < ((latJ - latI) * (lon - lonI)) / (lonJ - lonI) + latI;
         if (intersect) inside = !inside;
     }
     return inside;
 }
 
-// --- PERSONAL ATTENDANCE UI UPDATE ---
+async function getUserDetails(uid) {
+    try {
+        const ref = doc(db, "users", uid);
+        const snap = await getDoc(ref);
+        if (!snap.exists()) return { name: "Unknown User", role: "captain" };
+        return snap.data(); // {name, email, role}
+    } catch (err) {
+        console.error("Failed to load user details:", err);
+        return { name: "Unknown User", role: "captain" };
+    }
+}
+
+// --- PERSONAL ATTENDANCE UI ---
 function updatePersonalAttendanceList(records) {
     personalAttendanceList.innerHTML = "";
-
-    if (records.length === 0) {
-        personalAttendanceList.innerHTML =
-            `<li class="p-2 bg-gray-100 text-gray-600 rounded-md border-l-4 border-gray-400">No personal records yet.</li>`;
+    if (!records.length) {
+        personalAttendanceList.innerHTML = `<li class="p-2 bg-gray-100 text-gray-600 rounded-md border-l-4 border-gray-400">No personal records yet.</li>`;
         return;
     }
-
     records.forEach(rec => {
         const li = document.createElement("li");
         li.innerHTML = `<strong>✅ ${rec.timestamp.toDate().toLocaleString()}</strong>`;
@@ -106,14 +93,12 @@ function updatePersonalAttendanceList(records) {
     });
 }
 
-// --- TEAM DATA UI UPDATE ---
+// --- TEAM DATA UI ---
 function updateTeamDataList(records) {
     teamLoadingSpinner.classList.add("hidden");
     teamDataList.innerHTML = "";
-
-    if (records.length === 0) {
-        teamDataList.innerHTML =
-            `<tr><td colspan="4" class="py-3 text-center text-gray-500">No team attendance records found.</td></tr>`;
+    if (!records.length) {
+        teamDataList.innerHTML = `<tr><td colspan="4" class="py-3 text-center text-gray-500">No team attendance records found.</td></tr>`;
         return;
     }
 
@@ -122,39 +107,27 @@ function updateTeamDataList(records) {
     oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 
     records.forEach(r => {
-        if (!grouped[r.userId]) {
-            grouped[r.userId] = { 
-                name: r.userName,
-                role: r.userRole,
-                count: 0
-            };
-        }
-        if (r.timestamp.toDate() > oneWeekAgo) {
-            grouped[r.userId].count++;
-        }
+        if (!grouped[r.userId]) grouped[r.userId] = { name: r.userName, role: r.userRole, count: 0 };
+        if (r.timestamp.toDate() > oneWeekAgo) grouped[r.userId].count++;
     });
 
     Object.values(grouped).forEach(p => {
         const tr = document.createElement("tr");
-
         tr.innerHTML = `
             <td class="py-3 px-4 font-medium">${p.name} <span class="text-xs text-gray-500">(${RoleMapping[p.role] || "User"})</span></td>
             <td class="py-3 px-4 text-center font-bold text-green-600">${p.count} / 7</td>
             <td class="py-3 px-4 text-center text-gray-600">N/A</td>
             <td class="py-3 px-4 text-center text-gray-600">N/A</td>
         `;
-
         teamDataList.appendChild(tr);
     });
 }
 
-// --- LOAD PERSONAL RECORDS ---
+// --- LOAD PERSONAL ATTENDANCE ---
 function loadPersonalAttendance(uid) {
     if (unsubscribePersonalAttendance) unsubscribePersonalAttendance();
-
     const ref = collection(db, TEAM_ATTENDANCE_COLLECTION);
     const q = query(ref, where("userId", "==", uid));
-
     unsubscribePersonalAttendance = onSnapshot(q, snap => {
         const rec = [];
         snap.forEach(doc => rec.push(doc.data()));
@@ -163,12 +136,10 @@ function loadPersonalAttendance(uid) {
     });
 }
 
-// --- LOAD TEAM RECORDS ---
+// --- LOAD TEAM DATA ---
 function loadTeamData() {
     if (unsubscribeTeamData) unsubscribeTeamData();
-
     const ref = collection(db, TEAM_ATTENDANCE_COLLECTION);
-
     unsubscribeTeamData = onSnapshot(ref, snap => {
         const rec = [];
         snap.forEach(doc => rec.push(doc.data()));
@@ -180,7 +151,6 @@ function loadTeamData() {
 async function markAttendance(locationData, userDetails) {
     try {
         const ref = collection(db, TEAM_ATTENDANCE_COLLECTION);
-
         await addDoc(ref, {
             userId: currentUserId,
             userName: userDetails.name,
@@ -189,37 +159,29 @@ async function markAttendance(locationData, userDetails) {
             lat: locationData.latitude,
             lon: locationData.longitude
         });
-
-        attendanceMessage.textContent =
-            `Attendance marked successfully at ${new Date().toLocaleTimeString()}`;
-
+        attendanceMessage.textContent = `Attendance marked successfully at ${new Date().toLocaleTimeString()}`;
     } catch (err) {
         attendanceMessage.textContent = "Error saving attendance.";
         console.error(err);
     }
 }
 
-// --- BUTTON HANDLER ---
 function handleMarkAttendanceClick(userDetails) {
     if (!navigator.geolocation) {
         attendanceMessage.textContent = "Geolocation not supported.";
         return;
     }
-
     markAttendanceBtn.disabled = true;
     markAttendanceBtn.innerHTML = `<span class="loader mr-2"></span>Checking location...`;
-
     navigator.geolocation.getCurrentPosition(
         pos => {
             const lat = pos.coords.latitude;
             const lon = pos.coords.longitude;
-
             if (isPointInPolygon([lat, lon], handballField)) {
                 markAttendance({ latitude: lat, longitude: lon }, userDetails);
             } else {
                 attendanceMessage.textContent = "You are not inside the handball field area.";
             }
-
             markAttendanceBtn.disabled = false;
             markAttendanceBtn.textContent = "Mark Present";
         },
@@ -237,16 +199,13 @@ function handleMarkAttendanceClick(userDetails) {
 function handleLogout() {
     if (unsubscribePersonalAttendance) unsubscribePersonalAttendance();
     if (unsubscribeTeamData) unsubscribeTeamData();
-
     signOut(auth).finally(() => window.location.reload());
 }
 
 // --- INIT DASHBOARD ---
 async function initDashboard(uid) {
     const userDetails = await getUserDetails(uid);
-    const roleName = RoleMapping[userDetails.role] || "User";
-
-    playerNameElement.textContent = `Welcome, ${roleName} ${userDetails.name}`;
+    playerNameElement.textContent = `Captain ${userDetails.name}`;
 
     markAttendanceBtn.addEventListener("click", () => handleMarkAttendanceClick(userDetails));
     logoutBtn.addEventListener("click", handleLogout);
@@ -258,27 +217,20 @@ async function initDashboard(uid) {
 }
 
 // --- INITIALIZE APP ---
-async function initializeAppAndAuth() {
-    try {
-        const app = initializeApp(firebaseConfig);
-        db = getFirestore(app);
-        auth = getAuth(app);
+function initializeCaptainDashboard() {
+    const app = initializeApp(firebaseConfig);
+    db = getFirestore(app);
+    auth = getAuth(app);
 
-        // Use anonymous sign-in if no custom token
-        await signInAnonymously(auth);
-
-        onAuthStateChanged(auth, user => {
-            if (user) {
-                currentUserId = user.uid;
-                initDashboard(currentUserId);
-            } else {
-                document.getElementById("loading-message").textContent = "Authentication failed.";
-            }
-        });
-
-    } catch (err) {
-        console.error("Initialization error:", err);
-    }
+    onAuthStateChanged(auth, user => {
+        if (user) {
+            currentUserId = user.uid;
+            initDashboard(currentUserId);
+        } else {
+            document.getElementById("loading-message").textContent = "Please login first.";
+        }
+    });
 }
 
-window.onload = initializeAppAndAuth;
+window.onload = initializeCaptainDashboard;
+
