@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coach Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="coach-dashboard.css">
+</head>
+<body class="bg-gray-50 font-inter min-h-screen">
+
+    <!-- Loading overlay -->
+    <div id="loading-view" class="fixed inset-0 flex flex-col items-center justify-center bg-white z-50">
+        <div class="loader mb-4 border-4 border-blue-500 border-dashed rounded-full w-12 h-12 animate-spin"></div>
+        <p id="loading-message" class="text-lg text-gray-700">Loading Coach Dashboard...</p>
+    </div>
+
+    <!-- Header -->
+    <header class="flex justify-between items-center p-4 bg-white shadow">
+        <h1 class="text-xl font-bold" id="coach-name">Coach ...</h1>
+        <button id="logout-btn" class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600">Logout</button>
+    </header>
+
+    <!-- Main content -->
+    <main class="p-6">
+        <!-- Team Attendance Table -->
+        <section>
+            <h2 class="text-2xl font-semibold mb-4">Team Attendance (Last 7 Days)</h2>
+            <table class="min-w-full bg-white rounded-lg shadow overflow-hidden">
+                <thead class="bg-gray-200">
+                    <tr>
+                        <th class="py-2 px-4 text-left text-sm font-semibold">Player</th>
+                        <th class="py-2 px-4 text-center text-sm font-semibold">Role</th>
+                        <th class="py-2 px-4 text-center text-sm font-semibold">Attendance Count</th>
+                        <th class="py-2 px-4 text-center text-sm font-semibold">Recent Dates</th>
+                    </tr>
+                </thead>
+                <tbody id="team-attendance-list">
+                    <tr><td colspan="4" class="text-center py-4 text-gray-500">Loading team data...</td></tr>
+                </tbody>
+            </table>
+        </section>
+    </main>
+
+    <script type="module" src="coach-dashboard.js"></script>
+</body>
+</html>
